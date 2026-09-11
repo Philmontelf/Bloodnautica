@@ -1,476 +1,124 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interfaccia Utente - Style Guide & Layout</title>
-  <style>
-    /* ==========================================================================
-       CONFIGURAZIONE VARIABILI E PALETTE
-       ========================================================================== */
-    :root {
-      /* Tipografia */
-      --font-family-base: Georgia, 'Times New Roman', Times, serif;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Echo</title>
+    <!-- Mappe Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            background-color: #0d0a0b; 
+            color: #ffffff; 
+            font-family: Georgia, serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-sizing: border-box;
+        }
 
-      /* Palette Principale */
-      --color-primary: #C9121E;         /* Rosso d'azione */
-      --color-primary-hover: #A00E17;   /* Stato hover del primario */
-      --color-secondary: #5C222E;       /* Bordeaux per struttura e titoli */
-      --color-secondary-hover: #401720; /* Stato hover del secondario */
+        header { 
+            text-align: center; 
+            padding: 25px 0 10px; 
+        }
 
-      /* Neutri e Sfondi */
-      --color-bg-main: #FBF9F9;         /* Sfondo generale */
-      --color-bg-surface: #FFFFFF;      /* Sfondo schede e moduli */
-      --color-bg-subtle: #F3EBEB;       /* Sfondo sezioni e righe alternate */
-      
-      /* Testo e Bordi */
-      --color-text-main: #231215;       /* Testo primario ad alto contrasto */
-      --color-text-muted: #6B565A;      /* Testo secondario */
-      --color-border: #E5D5D8;          /* Bordi tenui */
-      --color-border-strong: #5C222E;   /* Bordi marcati */
+        h1 { 
+            margin: 0; 
+            font-size: 1.4rem; 
+            color: #C9121E; 
+            letter-spacing: 3px; 
+            text-transform: uppercase;
+            font-weight: normal;
+        }
 
-      /* Forme e Transizioni */
-      --radius-sm: 3px;
-      --radius-md: 6px;
-      --transition-fast: 0.2s ease;
-      --shadow-subtle: 0 4px 15px rgba(92, 34, 46, 0.06);
-    }
+        p { 
+            margin: 6px 0 0; 
+            font-size: 0.85rem; 
+            color: #8f7278; 
+            font-style: italic;
+        }
 
-    /* ==========================================================================
-       RESET E BASE
-       ========================================================================== */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+        #map { 
+            width: 88vw; 
+            height: 52vh; 
+            border-radius: 12px; 
+            border: 1px solid #5C222E; 
+            margin: 10px 0; 
+            box-shadow: 0 4px 20px rgba(92, 34, 46, 0.25);
+        }
 
-    html {
-      font-size: 16px;
-      background-color: var(--color-bg-main);
-      color: var(--color-text-main);
-    }
+        #status { 
+            font-size: 0.85rem; 
+            color: #C9121E; 
+            text-align: center; 
+            height: 35px; 
+            padding: 0 20px; 
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-    body {
-      font-family: var(--font-family-base);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+        .btn-container { 
+            margin-bottom: 35px; 
+        }
 
-    /* ==========================================================================
-       HEADER & NAVIGATION
-       ========================================================================== */
-    .site-header {
-      background-color: var(--color-secondary);
-      color: #FFFFFF;
-      padding: 1rem 0;
-      border-bottom: 4px solid var(--color-primary);
-    }
+        button { 
+            width: 85px; 
+            height: 85px; 
+            border-radius: 50%; 
+            border: 2px solid #C9121E; 
+            background: #5C222E; 
+            color: #ffffff; 
+            font-family: Georgia, serif;
+            font-size: 0.8rem; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer; 
+            outline: none; 
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(201, 18, 30, 0.3);
+        }
 
-    .header-container {
-      display: table;
-      width: 100%;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-    }
+        button:active { 
+            background: #C9121E; 
+            border-color: #5C222E;
+            transform: scale(0.96);
+        }
 
-    .brand-logo {
-      display: table-cell;
-      vertical-align: middle;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #FFFFFF;
-      text-decoration: none;
-    }
+        /* Personalizzazione marker mappa Leaflet con i nuovi colori */
+        .leaflet-popup-content-wrapper {
+            background: #5C222E;
+            color: #ffffff;
+            font-family: Georgia, serif;
+            border: 1px solid #C9121E;
+            border-radius: 8px;
+        }
 
-    .nav-links {
-      display: table-cell;
-      text-align: right;
-      vertical-align: middle;
-    }
-
-    .nav-links a {
-      color: #F3EBEB;
-      text-decoration: none;
-      margin-left: 1.5rem;
-      font-size: 0.95rem;
-      transition: color var(--transition-fast);
-    }
-
-    .nav-links a:hover,
-    .nav-links a.active {
-      color: #FFFFFF;
-      border-bottom: 2px solid var(--color-primary);
-      padding-bottom: 4px;
-    }
-
-    /* ==========================================================================
-       LAYOUT CONTAINER
-       ========================================================================== */
-    .container {
-      width: 100%;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2.5rem 1.5rem;
-    }
-
-    /* ==========================================================================
-       TIPOGRAFIA
-       ========================================================================== */
-    h1, h2, h3, h4, h5, h6 {
-      font-family: var(--font-family-base);
-      color: var(--color-secondary);
-      font-weight: 700;
-      line-height: 1.25;
-      margin-bottom: 1rem;
-    }
-
-    h1 {
-      font-size: 2.25rem;
-      border-bottom: 3px solid var(--color-primary);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    h2 {
-      font-size: 1.65rem;
-      border-bottom: 1px solid var(--color-border);
-      padding-bottom: 0.4rem;
-      margin-top: 1.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    h3 {
-      font-size: 1.3rem;
-      margin-bottom: 0.75rem;
-    }
-
-    p {
-      margin-bottom: 1.25rem;
-    }
-
-    small {
-      font-size: 0.85rem;
-      color: var(--color-text-muted);
-    }
-
-    a {
-      color: var(--color-primary);
-      text-decoration: none;
-      border-bottom: 1px solid transparent;
-      transition: border-color var(--transition-fast), color var(--transition-fast);
-    }
-
-    a:hover {
-      color: var(--color-secondary);
-      border-bottom-color: var(--color-secondary);
-    }
-
-    /* ==========================================================================
-       COMPONENTI UI
-       ========================================================================== */
-
-    /* Pulsanti */
-    .btn-group {
-      margin-bottom: 1.5rem;
-    }
-
-    .btn {
-      display: inline-block;
-      font-family: var(--font-family-base);
-      font-size: 0.95rem;
-      font-weight: bold;
-      text-align: center;
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      border: 1px solid transparent;
-      margin-right: 0.5rem;
-      margin-bottom: 0.5rem;
-      text-decoration: none;
-      transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-    }
-
-    .btn-primary {
-      background-color: var(--color-primary);
-      color: #FFFFFF;
-      border-color: var(--color-primary);
-    }
-
-    .btn-primary:hover {
-      background-color: var(--color-primary-hover);
-      border-color: var(--color-primary-hover);
-      color: #FFFFFF;
-    }
-
-    .btn-secondary {
-      background-color: var(--color-secondary);
-      color: #FFFFFF;
-      border-color: var(--color-secondary);
-    }
-
-    .btn-secondary:hover {
-      background-color: var(--color-secondary-hover);
-      border-color: var(--color-secondary-hover);
-      color: #FFFFFF;
-    }
-
-    .btn-outline {
-      background-color: transparent;
-      color: var(--color-secondary);
-      border-color: var(--color-secondary);
-    }
-
-    .btn-outline:hover {
-      background-color: var(--color-secondary);
-      color: #FFFFFF;
-    }
-
-    /* Card / Riquadri */
-    .card {
-      background-color: var(--color-bg-surface);
-      border: 1px solid var(--color-border);
-      border-top: 4px solid var(--color-secondary);
-      border-radius: var(--radius-md);
-      padding: 1.75rem;
-      box-shadow: var(--shadow-subtle);
-      margin-bottom: 2rem;
-    }
-
-    .card-title {
-      color: var(--color-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    /* Moduli / Form */
-    .form-group {
-      margin-bottom: 1.25rem;
-    }
-
-    .form-label {
-      display: block;
-      font-weight: bold;
-      color: var(--color-secondary);
-      margin-bottom: 0.4rem;
-      font-size: 0.95rem;
-    }
-
-    .form-control {
-      width: 100%;
-      font-family: var(--font-family-base);
-      font-size: 0.95rem;
-      padding: 0.7rem 0.9rem;
-      color: var(--color-text-main);
-      background-color: var(--color-bg-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(201, 18, 30, 0.15);
-    }
-
-    /* Tabelle */
-    .table-container {
-      width: 100%;
-      overflow-x: auto;
-      margin-bottom: 1.5rem;
-    }
-
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: var(--color-bg-surface);
-    }
-
-    .table th, 
-    .table td {
-      padding: 0.85rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    .table th {
-      background-color: var(--color-secondary);
-      color: #FFFFFF;
-      font-weight: normal;
-    }
-
-    .table tr:nth-child(even) {
-      background-color: var(--color-bg-subtle);
-    }
-
-    /* Badge ed Evidenziatori */
-    .badge {
-      display: inline-block;
-      padding: 0.2rem 0.5rem;
-      font-size: 0.75rem;
-      font-weight: bold;
-      border-radius: var(--radius-sm);
-      background-color: var(--color-primary);
-      color: #FFFFFF;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .badge-secondary {
-      background-color: var(--color-secondary);
-    }
-
-    /* Callout Box */
-    .callout {
-      background-color: var(--color-bg-subtle);
-      border-left: 4px solid var(--color-primary);
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    }
-
-    /* ==========================================================================
-       FOOTER
-       ========================================================================== */
-    .site-footer {
-      background-color: var(--color-secondary);
-      color: #F3EBEB;
-      padding: 2rem 0;
-      margin-top: 3rem;
-      font-size: 0.9rem;
-      border-top: 1px solid var(--color-border-strong);
-    }
-
-    .footer-container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-      text-align: center;
-    }
-
-    .footer-container p {
-      margin-bottom: 0.5rem;
-    }
-  </style>
+        .leaflet-popup-tip {
+            background: #5C222E;
+        }
+    </style>
 </head>
 <body>
 
-  <!-- HEADER -->
-  <header class="site-header">
-    <div class="header-container">
-      <a href="#" class="brand-logo">Project Name</a>
-      <nav class="nav-links">
-        <a href="#" class="active">Home</a>
-        <a href="#">Documentazione</a>
-        <a href="#">Componenti</a>
-        <a href="#">Contatti</a>
-      </nav>
-    </div>
-  </header>
+    <header>
+        <h1>Quantum Echo</h1>
+        <p>Interferenza Biometrica e Quantistica</p>
+    </header>
 
-  <!-- CONTENUTO PRINCIPALE -->
-  <main class="container">
-    
-    <h1>Sistema di Design e Interfaccia Utente</h1>
-    <p>Questo progetto implementa un'interfaccia utente basata sulla tipografia <strong>Georgia</strong> con palette cromatica focalizzata sul Rosso Primario (<code>#C9121E</code>) per azioni ed evidenze, e sul Bordeaux Secondario (<code>#5C222E</code>) per elementi strutturali.</p>
+    <div id="map"></div>
+    <div id="status">In attesa della posizione GPS...</div>
 
-    <!-- BOX CALLOUT -->
-    <div class="callout">
-      <h3>Nota di Configurazione</h3>
-      <p>Tutti gli stili sono strutturati mediante variabili CSS per garantire facilità di manutenzione e coerenza su tutte le pagine del progetto.</p>
+    <div class="btn-container">
+        <button id="scanBtn" onclick="startProcess()">AVVIA</button>
     </div>
 
-    <!-- SEZIONE PULSANTI E BADGE -->
-    <h2>Pulsanti e Indicatori</h2>
-    <div class="card">
-      <h3 class="card-title">Stili dei Pulsanti</h3>
-      <p>I pulsanti utilizzano transizioni morbide per l'interazione utente e garantiscono elevata contrastabilità.</p>
-      <div class="btn-group">
-        <a href="#" class="btn btn-primary">Azione Principale</a>
-        <a href="#" class="btn btn-secondary">Azione Secondaria</a>
-        <a href="#" class="btn btn-outline">Tratto / Outline</a>
-      </div>
-      
-      <h3 class="card-title" style="margin-top: 1.5rem;">Badge di Stato</h3>
-      <p>
-        Stato Progetto: <span class="badge">Attivo</span>
-        Categoria: <span class="badge badge-secondary">Sviluppo</span>
-      </p>
-    </div>
-
-    <!-- SEZIONE FORM / MODULI -->
-    <h2>Moduli e Campi di Input</h2>
-    <div class="card">
-      <form onsubmit="return false;">
-        <div class="form-group">
-          <label class="form-label" for="nome">Nome Completo</label>
-          <input type="text" id="nome" class="form-control" placeholder="Inserisci il tuo nome">
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label" for="email">Indirizzo Email</label>
-          <input type="email" id="email" class="form-control" placeholder="nome@esempio.it">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="messaggio">Messaggio</label>
-          <textarea id="messaggio" class="form-control" rows="4" placeholder="Scrivi il tuo messaggio qui..."></textarea>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Invia Messaggio</button>
-      </form>
-    </div>
-
-    <!-- SEZIONE TABELLE -->
-    <h2>Tabelle Dati</h2>
-    <div class="card">
-      <div class="table-container">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Elemento</th>
-              <th>Stato</th>
-              <th>Valore</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>#001</td>
-              <td>Configurazione UI</td>
-              <td><span class="badge">Completato</span></td>
-              <td>100%</td>
-            </tr>
-            <tr>
-              <td>#002</td>
-              <td>Integrazione Palette</td>
-              <td><span class="badge">Completato</span></td>
-              <td>100%</td>
-            </tr>
-            <tr>
-              <td>#003</td>
-              <td>Ottimizzazione Tipografica</td>
-              <td><span class="badge badge-secondary">In Corso</span></td>
-              <td>75%</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- FOOTER -->
-  <footer class="site-footer">
-    <div class="footer-container">
-      <p>&copy; 2026 - Tutti i diritti riservati.</p>
-      <p><small style="color: #D5C4C7;">Interfaccia sviluppata con font Georgia e palette #C9121E / #5C222E.</small></p>
-    </div>
-  </footer>
-
-</body>
-</html>
+    <script>
         // INSERISCI QUI LA TUA API KEY QUANTISTICA
         const QUANTUM_API_KEY = "37P8fAZc0s8jI16PI5bOG2Ksv4lYhcIu9F13e7gB"; 
 
@@ -479,54 +127,73 @@
 
         window.onload = () => {
             map = L.map('map').setView([0, 0], 2);
+            
+            // Cartografia scura coerente con i toni scuri dell'interfaccia
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19
             }).addTo(map);
 
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(pos => {
+                navigator.geolocation.getCurrentPosition(pos => {
                     userLat = pos.coords.latitude;
                     userLon = pos.coords.longitude;
-                    if (!userMarker) {
-                        map.setView([userLat, userLon], 14);
-                        userMarker = L.circleMarker([userLat, userLon], { color: '#00e5ff', radius: 8 }).addTo(map);
-                    } else {
-                        userMarker.setLatLng([userLat, userLon]);
-                    }
-                }, err => alert("Per favore attiva il GPS"), { enableHighAccuracy: true });
+                    map.setView([userLat, userLon], 14);
+                    
+                    // Indicatore utente con il colore secondario e primario
+                    userMarker = L.circleMarker([userLat, userLon], { 
+                        color: '#C9121E', 
+                        fillColor: '#5C222E',
+                        fillOpacity: 0.8,
+                        radius: 8 
+                    }).addTo(map);
+
+                    document.getElementById('status').innerText = "Segnale GPS acquisito. Seleziona Avvia.";
+                }, err => {
+                    console.error(err);
+                    document.getElementById('status').innerText = "Attiva la localizzazione per continuare.";
+                }, { enableHighAccuracy: false, timeout: 10000 });
             }
         };
 
         async function startProcess() {
-            if (!userLat) return alert("In attesa del segnale GPS...");
+            if (!userLat) return alert("Segnale GPS non disponibile.");
             
             const status = document.getElementById('status');
             
-            // Richiesta permessi accelerometro per iOS
+            // Richiesta permessi sensori per iOS
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
                     const permission = await DeviceMotionEvent.requestPermission();
-                    if (permission !== 'granted') return alert("Permesso sensori negato");
+                    if (permission !== 'granted') return alert("Permesso sensori non concesso.");
                 } catch (e) {
                     console.error(e);
                 }
             }
 
-            status.innerText = "Registrazione micro-tremolio mano (3s)...";
+            status.innerText = "Registrazione frequenza biometrica...";
             const bioData = await captureAccelerometer();
 
-            status.innerText = "Download fluttuazioni vuoto quantistico...";
+            status.innerText = "Sincronizzazione vuoto quantistico...";
             const quantumData = await fetchQuantumData();
 
-            status.innerText = "Calcolo matrice di risonanza...";
+            status.innerText = "Elaborazione matrice di risonanza...";
             const target = calculateResonance(bioData, quantumData);
 
             if (targetMarker) map.removeLayer(targetMarker);
-            targetMarker = L.marker([target.lat, target.lon]).addTo(map)
-                .bindPopup("<b>Singolarità Trovata</b>").openPopup();
+            
+            // Icona personalizzata per il punto trovato
+            const customIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#C9121E; width:14px; height:14px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 10px #C9121E;'></div>",
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+
+            targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
+                .bindPopup("<b>Singolarità Individuata</b>").openPopup();
             
             map.flyTo([target.lat, target.lon], 16);
-            status.innerText = "Singolarità individuata!";
+            status.innerText = "Singolarità individuata sulla mappa.";
         }
 
         function captureAccelerometer() {
@@ -543,7 +210,7 @@
                     }
                 }
                 window.addEventListener('devicemotion', handleMotion);
-                // Fallback se il sensore non risponde subito
+                
                 setTimeout(() => {
                     window.removeEventListener('devicemotion', handleMotion);
                     if (readings.length === 0) readings = Array.from({length: 150}, () => 9.8);
@@ -560,7 +227,6 @@
                 let data = await res.json();
                 return data.data;
             } catch (e) {
-                // Fallback se l'API non risponde
                 return Array.from({length: 100}, () => Math.floor(Math.random() * 255));
             }
         }
