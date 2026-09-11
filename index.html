@@ -118,6 +118,236 @@
     </div>
 
     <script>
+        let map, userMarker, targetMarker;
+        let userLat = 0, userLon = 0;
+
+        window.onload = () => {
+            map = L.map('map').setView([0, 0], 2);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    userLat = pos.coords.latitude;
+                    userLon = pos.coords.longitude;
+                    map.setView([userLat, userLon], 14);
+                    
+                    userMarker = L.circleMarker([userLat, userLon], { 
+                        color: '#C9121E', 
+                        fillColor: '#5C222E',
+                        fillOpacity: 0.8,
+                        radius: 8 
+                    }).addTo(map);
+
+                    document.getElementById('status').innerText = "Segnale GPS acquisito. Seleziona AVVIA.";
+                }, err => {
+                    document.getElementById('status').innerText = "Attiva la localizzazione e ricarica.";
+                }, { enableHighAccuracy: false, timeout: 10000 });
+            }
+        };
+
+        async function startProcess() {
+            if (!userLat) return alert("Segnale GPS non disponibile.");
+            
+            const status = document.getElementById('status');
+            
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    if (permission !== 'granted') return alert("Permesso sensori non concesso.");
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            status.innerText = "Registrazione frequenza biometrica...";
+            const bioData = await captureAccelerometer();
+
+            if (checkIfStationary(bioData)) {
+                status.innerText = "Telefono immobile. Tienilo in mano.";
+                return;
+            }
+
+            status.innerText = "Sincronizzazione ANU Quantum Server...";
+            let quantumData;
+            try {
+                quantumData = await fetchQuantumData();
+            } catch (error) {
+                status.innerText = "Errore Server: " + error.message;
+                return;
+            }
+
+            status.innerText = "Elaborazione matrice di risonanza...";
+            const target = calculateDeterministicResonance(bioData, quantumData);
+
+            if (targetMarker) map.removeLayer(targetMarker);
+            
+            const customIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#C9121E; width:16px; height:16px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 12px #C9121E;'></div>",
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
+                .bindPopup("<b>Singolarità Bloodnautica</b>").openPopup();
+            
+            map.flyTo([target.lat, target.lon], 16);
+            status.innerText = "Singolarità individuata sulla mappa.";
+        }
+
+        function captureAccelerometer() {
+            return new Promise(resolve => {
+                let readings = [];
+                function handleMotion(e) {
+                    let acc = e.accelerationIncludingGravity || e.acceleration;
+                    if (!acc) return;
+                    let mag = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
+                    readings.push(mag);
+                    if (readings.length >= 150) {
+                        window.removeEventListener('devicemotion', handleMotion);
+                        resolve(readings);
+                    }
+                }
+                window.addEventListener('devicemotion', handleMotion);
+                
+                setTimeout(() => {
+                    window.removeEventListener('devicemotion', handleMotion);
+                    resolve(readings);
+                }, 3500);
+            });
+        }
+
+        function checkIfStationary(readings) {
+            if (readings.length < 10) return false;
+            let mean = readings.reduce((a, b) => a + b, 0) / readings.length;
+            let variance = readings.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / readings.length;
+            return variance < 0.003; 
+        }
+
+        // Chiamata al vero server universitario tramite tunnel per evitare blocchi iOS
+        async function fetchQuantumData() {
+            const targetUrl = 'https://qrng.anu.edu.au/API/jsonI.php?length=100&type=uint8';
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            
+            const res = await fetch(proxyUrl);
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+
+            const json = await res.json();
+            if (json && json.data) {
+                return json.data;
+            } else {
+                throw new Error("Formato risposta non valido dall'università.");
+            }
+        }
+
+        function calculateDeterministicResonance(bio, quantum) {
+            let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
+            let quantumSum = quantum.reduce((a,b) => a+b, 0) / quantum.length;
+            
+            let combinedSeed = Math.abs(Math.sin(bioSum * quantumSum) * 100000);
+            
+            let radius = 1500; 
+            let r = radius * Math.sqrt(combinedSeed % 1);
+            let theta = ((combinedSeed * 13) % 1) * 2 * Math.PI;
+
+            let candLat = userLat + (r * Math.cos(theta)) / 111320;
+            let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
+
+            return { lat: candLat, lon: candLon };
+        }
+    </script>
+</body>
+</html>
+
+        p { 
+            margin: 6px 0 0; 
+            font-size: 0.85rem; 
+            color: #8f7278; 
+            font-style: italic;
+        }
+
+        #map { 
+            width: 88vw; 
+            height: 52vh; 
+            border-radius: 12px; 
+            border: 1px solid #5C222E; 
+            margin: 10px 0; 
+            box-shadow: 0 4px 20px rgba(92, 34, 46, 0.25);
+        }
+
+        #status { 
+            font-size: 0.85rem; 
+            color: #C9121E; 
+            text-align: center; 
+            height: 35px; 
+            padding: 0 20px; 
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-container { 
+            margin-bottom: 35px; 
+        }
+
+        button { 
+            width: 85px; 
+            height: 85px; 
+            border-radius: 50%; 
+            border: 2px solid #C9121E; 
+            background: #5C222E; 
+            color: #ffffff; 
+            font-family: Georgia, serif;
+            font-size: 0.8rem; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer; 
+            outline: none; 
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(201, 18, 30, 0.3);
+        }
+
+        button:active { 
+            background: #C9121E; 
+            border-color: #5C222E;
+            transform: scale(0.96);
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #5C222E;
+            color: #ffffff;
+            font-family: Georgia, serif;
+            border: 1px solid #C9121E;
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-tip {
+            background: #5C222E;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Bloodnautica</h1>
+        <p>Interferenza Biometrica e Quantistica</p>
+    </header>
+
+    <div id="map"></div>
+    <div id="status">In attesa del segnale GPS...</div>
+
+    <div class="btn-container">
+        <button id="scanBtn" onclick="startProcess()">AVVIA</button>
+    </div>
+
+    <script>
         // La tua API Key per il Vuoto Quantistico
         const QUANTUM_API_KEY = "37P8fAZc0s8jI16PI5bOG2Ksv4lYhcIu9F13e7gB"; 
 
