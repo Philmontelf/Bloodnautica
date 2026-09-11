@@ -1,273 +1,39 @@
-    <script>
-        let map, userMarker, targetMarker;
-        let userLat = 0, userLon = 0;
-
-        window.onload = () => {
-            map = L.map('map').setView([0, 0], 2);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19
-            }).addTo(map);
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    userLat = pos.coords.latitude;
-                    userLon = pos.coords.longitude;
-                    map.setView([userLat, userLon], 14);
-                    
-                    userMarker = L.circleMarker([userLat, userLon], { 
-                        color: '#C9121E', 
-                        fillColor: '#5C222E',
-                        fillOpacity: 0.8,
-                        radius: 8 
-                    }).addTo(map);
-
-                    document.getElementById('status').innerText = "GPS connesso. Premi AVVIA.";
-                }, err => {
-                    document.getElementById('status').innerText = "Attiva il GPS e ricarica la pagina.";
-                }, { enableHighAccuracy: false, timeout: 10000 });
-            }
-        };
-
-        async function startProcess() {
-            if (!userLat) return alert("In attesa del segnale GPS...");
-            
-            const status = document.getElementById('status');
-            
-            // Permessi accelerometro iOS
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                try {
-                    const permission = await DeviceMotionEvent.requestPermission();
-                    if (permission !== 'granted') return alert("Permesso accelerometro negato.");
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-
-            status.innerText = "Misurazione tremolio muscolare (3s)...";
-            const bioData = await captureAccelerometer();
-
-            // Controllo se il telefono è fermo su un tavolo
-            if (checkIfStationary(bioData)) {
-                status.innerText = "Telefono immobile. Tienilo in mano.";
-                return;
-            }
-
-            status.innerText = "Interrogazione vuoto quantistico (ANU QRNG)...";
-            let quantumData;
-            try {
-                quantumData = await fetchQuantumDataDirect();
-            } catch (error) {
-                status.innerText = "Errore API Quantistica: " + error.message;
-                return;
-            }
-
-            status.innerText = "Calcolo singolarità...";
-            const target = calculateDeterministicResonance(bioData, quantumData);
-
-            if (targetMarker) map.removeLayer(targetMarker);
-            
-            const customIcon = L.divIcon({
-                className: 'custom-div-icon',
-                html: "<div style='background-color:#C9121E; width:16px; height:16px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 12px #C9121E;'></div>",
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-            });
-
-            targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
-                .bindPopup("<b>Singolarità Bloodnautica</b>").openPopup();
-            
-            map.flyTo([target.lat, target.lon], 16);
-            status.innerText = "Singolarità individuata.";
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloodnautica</title>
+    <!-- Mappe Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            background-color: #0d0a0b; 
+            color: #ffffff; 
+            font-family: Georgia, serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-sizing: border-box;
         }
 
-        function captureAccelerometer() {
-            return new Promise(resolve => {
-                let readings = [];
-                function handleMotion(e) {
-                    let acc = e.accelerationIncludingGravity || e.acceleration;
-                    if (!acc) return;
-                    let mag = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
-                    readings.push(mag);
-                    if (readings.length >= 150) {
-                        window.removeEventListener('devicemotion', handleMotion);
-                        resolve(readings);
-                    }
-                }
-                window.addEventListener('devicemotion', handleMotion);
-                
-                setTimeout(() => {
-                    window.removeEventListener('devicemotion', handleMotion);
-                    resolve(readings);
-                }, 3500);
-            });
+        header { 
+            text-align: center; 
+            padding: 25px 0 10px; 
         }
 
-        function checkIfStationary(readings) {
-            if (readings.length < 10) return false;
-            let mean = readings.reduce((a, b) => a + b, 0) / readings.length;
-            let variance = readings.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / readings.length;
-            return variance < 0.003; 
+        h1 { 
+            margin: 0; 
+            font-size: 1.5rem; 
+            color: #C9121E; 
+            letter-spacing: 4px; 
+            text-transform: uppercase;
+            font-weight: normal;
         }
-
-        // Chiamata diretta ed esplicita all'API ANU via Proxy per evitare blocchi o pagine di testo
-        async function fetchQuantumDataDirect() {
-            // Usiamo il server ANU (Australian National University) via endpoint aperto
-            const url = "https://qrng.anu.edu.au/API/jsonI.php?length=10&type=uint8";
-            
-            const response = await fetch(url);
-            
-            // Verifichiamo che la risposta sia un vero JSON e non una pagina di testo/errore
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                const textErr = await response.text();
-                throw new Error("L'API ha restituito testo non valido invece di dati quantistici.");
-            }
-
-            const json = await response.json();
-            if (json && json.data) {
-                return json.data; // Array di 10 numeri quantistici puri
-            } else {
-                throw new Error("Formato dati quantistici non valido.");
-            }
-        }
-
-        function calculateDeterministicResonance(bio, quantum) {
-            // Media tremolio biometrico
-            let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
-            
-            // Primo numero quantistico dal vuoto dell'ANU
-            let quantumValue = quantum[0]; 
-
-            // Formula deterministica pura (Nessun Math.random)
-            let combinedSeed = Math.abs(Math.sin(bioSum * quantumValue) * 100000);
-            
-            let radius = 1500; // Raggio di 1.5 km
-            let r = radius * Math.sqrt(combinedSeed % 1);
-            let theta = ((combinedSeed * 13) % 1) * 2 * Math.PI;
-
-            let candLat = userLat + (r * Math.cos(theta)) / 111320;
-            let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
-
-            return { lat: candLat, lon: candLon };
-        }
-    </script>
-    const status = document.getElementById('status');
-    
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-            const permission = await DeviceMotionEvent.requestPermission();
-            if (permission !== 'granted') return alert("Permesso sensori non concesso.");
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    status.innerText = "Registrazione frequenza biometrica...";
-    const bioData = await captureAccelerometer();
-
-    // SOGLIA DI MOVIMENTO: Se la deviazione standard del tremolio è minima, il telefono è immobile.
-    const isStationary = checkIfStationary(bioData);
-    if (isStationary) {
-        status.innerText = "Errore: Impulso biologico insufficiente. Tieni il telefono in mano.";
-        return;
-    }
-
-    status.innerText = "Connessione al vuoto quantistico (API)...";
-    let quantumData;
-    try {
-        quantumData = await fetchQuantumData();
-    } catch (error) {
-        status.innerText = "Errore API Quantistica: " + error.message;
-        return; // SI BLOCCA: Nessuna generazione finta di punti.
-    }
-
-    status.innerText = "Elaborazione matrice di risonanza...";
-    const target = calculateDeterministicResonance(bioData, quantumData);
-
-    if (targetMarker) map.removeLayer(targetMarker);
-    
-    const customIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: "<div style='background-color:#C9121E; width:14px; height:14px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 10px #C9121E;'></div>",
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
-    });
-
-    targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
-        .bindPopup("<b>Singolarità Individuata</b>").openPopup();
-    
-    map.flyTo([target.lat, target.lon], 16);
-    status.innerText = "Singolarità individuata sulla mappa.";
-}
-
-function captureAccelerometer() {
-    return new Promise(resolve => {
-        let readings = [];
-        function handleMotion(e) {
-            let acc = e.accelerationIncludingGravity || e.acceleration;
-            if (!acc) return;
-            let mag = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
-            readings.push(mag);
-            if (readings.length >= 150) {
-                window.removeEventListener('devicemotion', handleMotion);
-                resolve(readings);
-            }
-        }
-        window.addEventListener('devicemotion', handleMotion);
-        
-        setTimeout(() => {
-            window.removeEventListener('devicemotion', handleMotion);
-            resolve(readings);
-        }, 3500);
-    });
-}
-
-// Verifica scientifica se il dispositivo è appoggiato su una superficie rigida
-function checkIfStationary(readings) {
-    if (readings.length === 0) return true;
-    let mean = readings.reduce((a, b) => a + b, 0) / readings.length;
-    let variance = readings.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / readings.length;
-    // Se la varianza è quasi nulla (< 0.005), il telefono è fermo
-    return variance < 0.005; 
-}
-
-// Chiamata API Reale senza Fallback casuali
-async function fetchQuantumData() {
-    let res = await fetch(`https://api.quantumrandom.io/v1.0/json?length=100`, {
-        headers: { 'X-API-Key': QUANTUM_API_KEY }
-    });
-    
-    if (!res.ok) {
-        throw new Error(`HTTP ${res.status} - Verificare API Key o crediti`);
-    }
-    
-    let data = await res.json();
-    if (!data || !data.data) {
-        throw new Error("Risposta API non valida");
-    }
-    return data.data;
-}
-
-// Algoritmo deterministico: Stesso Input = Stesso Output esatto
-function calculateDeterministicResonance(bio, quantum) {
-    let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
-    let quantumSum = quantum.reduce((a,b) => a+b, 0) / quantum.length;
-    
-    // Hash deterministico unico basato sui dati reali
-    let seed = Math.abs(Math.sin(bioSum * 1000 + quantumSum) * 10000);
-    
-    let radius = 1500;
-    
-    // Generazione pseudocasuale legata al SEED quantistico-biologico
-    let r = radius * Math.sqrt((seed % 1));
-    let theta = ((seed * 10) % 1) * 2 * Math.PI;
-
-    let candLat = userLat + (r * Math.cos(theta)) / 111320;
-    let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
-
-    return { lat: candLat, lon: candLon };
-}
 
         p { 
             margin: 6px 0 0; 
@@ -324,7 +90,6 @@ function calculateDeterministicResonance(bio, quantum) {
             transform: scale(0.96);
         }
 
-        /* Personalizzazione pop-up mappa */
         .leaflet-popup-content-wrapper {
             background: #5C222E;
             color: #ffffff;
@@ -346,14 +111,13 @@ function calculateDeterministicResonance(bio, quantum) {
     </header>
 
     <div id="map"></div>
-    <div id="status">In attesa della posizione GPS...</div>
+    <div id="status">In attesa del segnale GPS...</div>
 
     <div class="btn-container">
         <button id="scanBtn" onclick="startProcess()">AVVIA</button>
     </div>
 
     <script>
-        // INSERISCI QUI LA TUA API KEY QUANTISTICA
         const QUANTUM_API_KEY = "37P8fAZc0s8jI16PI5bOG2Ksv4lYhcIu9F13e7gB"; 
 
         let map, userMarker, targetMarker;
@@ -379,10 +143,9 @@ function calculateDeterministicResonance(bio, quantum) {
                         radius: 8 
                     }).addTo(map);
 
-                    document.getElementById('status').innerText = "Segnale GPS acquisito. Seleziona Avvia.";
+                    document.getElementById('status').innerText = "Segnale GPS acquisito. Seleziona AVVIA.";
                 }, err => {
-                    console.error(err);
-                    document.getElementById('status').innerText = "Attiva la localizzazione per continuare.";
+                    document.getElementById('status').innerText = "Attiva la localizzazione e ricarica.";
                 }, { enableHighAccuracy: false, timeout: 10000 });
             }
         };
@@ -404,23 +167,34 @@ function calculateDeterministicResonance(bio, quantum) {
             status.innerText = "Registrazione frequenza biometrica...";
             const bioData = await captureAccelerometer();
 
+            if (checkIfStationary(bioData)) {
+                status.innerText = "Telefono immobile. Tienilo in mano.";
+                return;
+            }
+
             status.innerText = "Sincronizzazione vuoto quantistico...";
-            const quantumData = await fetchQuantumData();
+            let quantumData;
+            try {
+                quantumData = await fetchQuantumData();
+            } catch (error) {
+                status.innerText = "Errore API Quantistica: " + error.message;
+                return;
+            }
 
             status.innerText = "Elaborazione matrice di risonanza...";
-            const target = calculateResonance(bioData, quantumData);
+            const target = calculateDeterministicResonance(bioData, quantumData);
 
             if (targetMarker) map.removeLayer(targetMarker);
             
             const customIcon = L.divIcon({
                 className: 'custom-div-icon',
-                html: "<div style='background-color:#C9121E; width:14px; height:14px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 10px #C9121E;'></div>",
-                iconSize: [14, 14],
-                iconAnchor: [7, 7]
+                html: "<div style='background-color:#C9121E; width:16px; height:16px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 12px #C9121E;'></div>",
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
             });
 
             targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
-                .bindPopup("<b>Singolarità Individuata</b>").openPopup();
+                .bindPopup("<b>Singolarità Bloodnautica</b>").openPopup();
             
             map.flyTo([target.lat, target.lon], 16);
             status.innerText = "Singolarità individuata sulla mappa.";
@@ -443,48 +217,60 @@ function calculateDeterministicResonance(bio, quantum) {
                 
                 setTimeout(() => {
                     window.removeEventListener('devicemotion', handleMotion);
-                    if (readings.length === 0) readings = Array.from({length: 150}, () => 9.8);
                     resolve(readings);
                 }, 3500);
             });
         }
 
+        function checkIfStationary(readings) {
+            if (readings.length < 10) return false;
+            let mean = readings.reduce((a, b) => a + b, 0) / readings.length;
+            let variance = readings.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / readings.length;
+            return variance < 0.003; 
+        }
+
         async function fetchQuantumData() {
-            try {
-                let res = await fetch(`https://api.quantumrandom.io/v1.0/json?length=100`, {
-                    headers: { 'X-API-Key': QUANTUM_API_KEY }
-                });
-                let data = await res.json();
+            const endpoint = `https://api.quantumrandom.io/v1.0/json?length=100`;
+            
+            const res = await fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                    'X-API-Key': QUANTUM_API_KEY,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error(`Risposta server ${res.status}`);
+            }
+
+            const contentType = res.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Formato risposta non valido.");
+            }
+
+            const data = await res.json();
+            if (data && data.data) {
                 return data.data;
-            } catch (e) {
-                return Array.from({length: 100}, () => Math.floor(Math.random() * 255));
+            } else {
+                throw new Error("Dati quantistici assenti.");
             }
         }
 
-        function calculateResonance(bio, quantum) {
+        function calculateDeterministicResonance(bio, quantum) {
             let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
             let quantumSum = quantum.reduce((a,b) => a+b, 0) / quantum.length;
-            let combinedSignature = (bioSum * quantumSum) % 1;
-
+            
+            let combinedSeed = Math.abs(Math.sin(bioSum * quantumSum) * 100000);
+            
             let radius = 1500;
-            let bestLat = userLat, bestLon = userLon, minDiff = Infinity;
+            let r = radius * Math.sqrt(combinedSeed % 1);
+            let theta = ((combinedSeed * 13) % 1) * 2 * Math.PI;
 
-            for (let i = 0; i < 1000; i++) {
-                let r = radius * Math.sqrt(Math.random());
-                let theta = Math.random() * 2 * Math.PI;
-                let candLat = userLat + (r * Math.cos(theta)) / 111320;
-                let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
+            let candLat = userLat + (r * Math.cos(theta)) / 111320;
+            let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
 
-                let spatialFreq = (Math.sin(candLat * 50000) * Math.cos(candLon * 50000) + 1) / 2;
-                let diff = Math.abs(combinedSignature - spatialFreq);
-
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    bestLat = candLat;
-                    bestLon = candLon;
-                }
-            }
-            return { lat: bestLat, lon: bestLon };
+            return { lat: candLat, lon: candLon };
         }
     </script>
 </body>
