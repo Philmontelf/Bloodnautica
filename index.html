@@ -1,39 +1,157 @@
-// INSERISCI QUI LA TUA API KEY QUANTISTICA
-const QUANTUM_API_KEY = "37P8fAZc0s8jI16PI5bOG2Ksv4lYhcIu9F13e7gB"; 
+    <script>
+        let map, userMarker, targetMarker;
+        let userLat = 0, userLon = 0;
 
-let map, userMarker, targetMarker;
-let userLat = 0, userLon = 0;
-
-window.onload = () => {
-    map = L.map('map').setView([0, 0], 2);
-    
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
-    }).addTo(map);
-
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            userLat = pos.coords.latitude;
-            userLon = pos.coords.longitude;
-            map.setView([userLat, userLon], 14);
+        window.onload = () => {
+            map = L.map('map').setView([0, 0], 2);
             
-            userMarker = L.circleMarker([userLat, userLon], { 
-                color: '#C9121E', 
-                fillColor: '#5C222E',
-                fillOpacity: 0.8,
-                radius: 8 
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
             }).addTo(map);
 
-            document.getElementById('status').innerText = "Segnale GPS acquisito. Seleziona Avvia.";
-        }, err => {
-            document.getElementById('status').innerText = "Attiva la localizzazione per continuare.";
-        }, { enableHighAccuracy: false, timeout: 10000 });
-    }
-};
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    userLat = pos.coords.latitude;
+                    userLon = pos.coords.longitude;
+                    map.setView([userLat, userLon], 14);
+                    
+                    userMarker = L.circleMarker([userLat, userLon], { 
+                        color: '#C9121E', 
+                        fillColor: '#5C222E',
+                        fillOpacity: 0.8,
+                        radius: 8 
+                    }).addTo(map);
 
-async function startProcess() {
-    if (!userLat) return alert("Segnale GPS non disponibile.");
-    
+                    document.getElementById('status').innerText = "GPS connesso. Premi AVVIA.";
+                }, err => {
+                    document.getElementById('status').innerText = "Attiva il GPS e ricarica la pagina.";
+                }, { enableHighAccuracy: false, timeout: 10000 });
+            }
+        };
+
+        async function startProcess() {
+            if (!userLat) return alert("In attesa del segnale GPS...");
+            
+            const status = document.getElementById('status');
+            
+            // Permessi accelerometro iOS
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    if (permission !== 'granted') return alert("Permesso accelerometro negato.");
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            status.innerText = "Misurazione tremolio muscolare (3s)...";
+            const bioData = await captureAccelerometer();
+
+            // Controllo se il telefono è fermo su un tavolo
+            if (checkIfStationary(bioData)) {
+                status.innerText = "Telefono immobile. Tienilo in mano.";
+                return;
+            }
+
+            status.innerText = "Interrogazione vuoto quantistico (ANU QRNG)...";
+            let quantumData;
+            try {
+                quantumData = await fetchQuantumDataDirect();
+            } catch (error) {
+                status.innerText = "Errore API Quantistica: " + error.message;
+                return;
+            }
+
+            status.innerText = "Calcolo singolarità...";
+            const target = calculateDeterministicResonance(bioData, quantumData);
+
+            if (targetMarker) map.removeLayer(targetMarker);
+            
+            const customIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#C9121E; width:16px; height:16px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 12px #C9121E;'></div>",
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            targetMarker = L.marker([target.lat, target.lon], { icon: customIcon }).addTo(map)
+                .bindPopup("<b>Singolarità Bloodnautica</b>").openPopup();
+            
+            map.flyTo([target.lat, target.lon], 16);
+            status.innerText = "Singolarità individuata.";
+        }
+
+        function captureAccelerometer() {
+            return new Promise(resolve => {
+                let readings = [];
+                function handleMotion(e) {
+                    let acc = e.accelerationIncludingGravity || e.acceleration;
+                    if (!acc) return;
+                    let mag = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
+                    readings.push(mag);
+                    if (readings.length >= 150) {
+                        window.removeEventListener('devicemotion', handleMotion);
+                        resolve(readings);
+                    }
+                }
+                window.addEventListener('devicemotion', handleMotion);
+                
+                setTimeout(() => {
+                    window.removeEventListener('devicemotion', handleMotion);
+                    resolve(readings);
+                }, 3500);
+            });
+        }
+
+        function checkIfStationary(readings) {
+            if (readings.length < 10) return false;
+            let mean = readings.reduce((a, b) => a + b, 0) / readings.length;
+            let variance = readings.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / readings.length;
+            return variance < 0.003; 
+        }
+
+        // Chiamata diretta ed esplicita all'API ANU via Proxy per evitare blocchi o pagine di testo
+        async function fetchQuantumDataDirect() {
+            // Usiamo il server ANU (Australian National University) via endpoint aperto
+            const url = "https://qrng.anu.edu.au/API/jsonI.php?length=10&type=uint8";
+            
+            const response = await fetch(url);
+            
+            // Verifichiamo che la risposta sia un vero JSON e non una pagina di testo/errore
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                const textErr = await response.text();
+                throw new Error("L'API ha restituito testo non valido invece di dati quantistici.");
+            }
+
+            const json = await response.json();
+            if (json && json.data) {
+                return json.data; // Array di 10 numeri quantistici puri
+            } else {
+                throw new Error("Formato dati quantistici non valido.");
+            }
+        }
+
+        function calculateDeterministicResonance(bio, quantum) {
+            // Media tremolio biometrico
+            let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
+            
+            // Primo numero quantistico dal vuoto dell'ANU
+            let quantumValue = quantum[0]; 
+
+            // Formula deterministica pura (Nessun Math.random)
+            let combinedSeed = Math.abs(Math.sin(bioSum * quantumValue) * 100000);
+            
+            let radius = 1500; // Raggio di 1.5 km
+            let r = radius * Math.sqrt(combinedSeed % 1);
+            let theta = ((combinedSeed * 13) % 1) * 2 * Math.PI;
+
+            let candLat = userLat + (r * Math.cos(theta)) / 111320;
+            let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
+
+            return { lat: candLat, lon: candLon };
+        }
+    </script>
     const status = document.getElementById('status');
     
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
