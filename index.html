@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Echo</title>
+    <!-- Mappe Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; background-color: #0b0b0b; color: white; font-family: monospace; display: flex; flex-direction: column; height: 100vh; justify-content: space-between; align-items: center; }
+        header { text-align: center; padding: 20px 0 5px; }
+        h1 { margin: 0; font-size: 1.2rem; color: #fff; letter-spacing: 2px; }
+        p { margin: 4px 0; font-size: 0.75rem; color: #888; }
+        #map { width: 90vw; height: 55vh; border-radius: 16px; border: 1px solid #333; margin: 10px 0; }
+        #status { font-size: 0.8rem; color: #00e5ff; text-align: center; height: 35px; padding: 0 15px; }
+        .btn-container { margin-bottom: 35px; }
+        button { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #00e5ff; background: rgba(0, 229, 255, 0.1); color: #00e5ff; font-size: 1.6rem; cursor: pointer; outline: none; }
+        button:active { background: #00e5ff; color: #000; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>QUANTUM ECHO</h1>
+        <p>Interferenza Biometrica-Quantistica</p>
+    </header>
+
+    <div id="map"></div>
+    <div id="status">Tocca il pulsante e tieni fermo il telefono</div>
+
+    <div class="btn-container">
+        <button id="scanBtn" onclick="startProcess()">⚡</button>
+    </div>
+
+    <script>
+        // INSERISCI QUI LA TUA API KEY QUANTISTICA
+        const QUANTUM_API_KEY = "LA_TUA_API_KEY_QUI"; 
+
+        let map, userMarker, targetMarker;
+        let userLat = 0, userLon = 0;
+
+        window.onload = () => {
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    userLat = pos.coords.latitude;
+                    userLon = pos.coords.longitude;
+                    if (!userMarker) {
+                        map.setView([userLat, userLon], 14);
+                        userMarker = L.circleMarker([userLat, userLon], { color: '#00e5ff', radius: 8 }).addTo(map);
+                    } else {
+                        userMarker.setLatLng([userLat, userLon]);
+                    }
+                }, err => alert("Per favore attiva il GPS"), { enableHighAccuracy: true });
+            }
+        };
+
+        async function startProcess() {
+            if (!userLat) return alert("In attesa del segnale GPS...");
+            
+            const status = document.getElementById('status');
+            
+            // Richiesta permessi accelerometro per iOS
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    if (permission !== 'granted') return alert("Permesso sensori negato");
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            status.innerText = "Registrazione micro-tremolio mano (3s)...";
+            const bioData = await captureAccelerometer();
+
+            status.innerText = "Download fluttuazioni vuoto quantistico...";
+            const quantumData = await fetchQuantumData();
+
+            status.innerText = "Calcolo matrice di risonanza...";
+            const target = calculateResonance(bioData, quantumData);
+
+            if (targetMarker) map.removeLayer(targetMarker);
+            targetMarker = L.marker([target.lat, target.lon]).addTo(map)
+                .bindPopup("<b>Singolarità Trovata</b>").openPopup();
+            
+            map.flyTo([target.lat, target.lon], 16);
+            status.innerText = "Singolarità individuata!";
+        }
+
+        function captureAccelerometer() {
+            return new Promise(resolve => {
+                let readings = [];
+                function handleMotion(e) {
+                    let acc = e.accelerationIncludingGravity || e.acceleration;
+                    if (!acc) return;
+                    let mag = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
+                    readings.push(mag);
+                    if (readings.length >= 150) {
+                        window.removeEventListener('devicemotion', handleMotion);
+                        resolve(readings);
+                    }
+                }
+                window.addEventListener('devicemotion', handleMotion);
+                // Fallback se il sensore non risponde subito
+                setTimeout(() => {
+                    window.removeEventListener('devicemotion', handleMotion);
+                    if (readings.length === 0) readings = Array.from({length: 150}, () => 9.8);
+                    resolve(readings);
+                }, 3500);
+            });
+        }
+
+        async function fetchQuantumData() {
+            try {
+                let res = await fetch(`https://api.quantumrandom.io/v1.0/json?length=100`, {
+                    headers: { 'X-API-Key': QUANTUM_API_KEY }
+                });
+                let data = await res.json();
+                return data.data;
+            } catch (e) {
+                // Fallback se l'API non risponde
+                return Array.from({length: 100}, () => Math.floor(Math.random() * 255));
+            }
+        }
+
+        function calculateResonance(bio, quantum) {
+            let bioSum = bio.reduce((a,b) => a+b, 0) / bio.length;
+            let quantumSum = quantum.reduce((a,b) => a+b, 0) / quantum.length;
+            let combinedSignature = (bioSum * quantumSum) % 1;
+
+            let radius = 1500;
+            let bestLat = userLat, bestLon = userLon, minDiff = Infinity;
+
+            for (let i = 0; i < 1000; i++) {
+                let r = radius * Math.sqrt(Math.random());
+                let theta = Math.random() * 2 * Math.PI;
+                let candLat = userLat + (r * Math.cos(theta)) / 111320;
+                let candLon = userLon + (r * Math.sin(theta)) / (111320 * Math.cos(userLat * Math.PI / 180));
+
+                let spatialFreq = (Math.sin(candLat * 50000) * Math.cos(candLon * 50000) + 1) / 2;
+                let diff = Math.abs(combinedSignature - spatialFreq);
+
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestLat = candLat;
+                    bestLon = candLon;
+                }
+            }
+            return { lat: bestLat, lon: bestLon };
+        }
+    </script>
+</body>
+</html>
