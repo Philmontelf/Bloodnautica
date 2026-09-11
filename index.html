@@ -28,9 +28,9 @@
 
         h1 { 
             margin: 0; 
-            font-size: 1.4rem; 
+            font-size: 1.5rem; 
             color: #C9121E; 
-            letter-spacing: 3px; 
+            letter-spacing: 4px; 
             text-transform: uppercase;
             font-weight: normal;
         }
@@ -90,7 +90,7 @@
             transform: scale(0.96);
         }
 
-        /* Personalizzazione marker mappa Leaflet con i nuovi colori */
+        /* Personalizzazione pop-up mappa */
         .leaflet-popup-content-wrapper {
             background: #5C222E;
             color: #ffffff;
@@ -107,7 +107,7 @@
 <body>
 
     <header>
-        <h1>Quantum Echo</h1>
+        <h1>Bloodnautica</h1>
         <p>Interferenza Biometrica e Quantistica</p>
     </header>
 
@@ -120,7 +120,7 @@
 
     <script>
         // INSERISCI QUI LA TUA API KEY QUANTISTICA
-        const QUANTUM_API_KEY = "37P8fAZc0s8jI16PI5bOG2Ksv4lYhcIu9F13e7gB"; 
+        const QUANTUM_API_KEY = "LA_TUA_API_KEY_QUI"; 
 
         let map, userMarker, targetMarker;
         let userLat = 0, userLon = 0;
@@ -128,7 +128,6 @@
         window.onload = () => {
             map = L.map('map').setView([0, 0], 2);
             
-            // Cartografia scura coerente con i toni scuri dell'interfaccia
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19
             }).addTo(map);
@@ -139,7 +138,6 @@
                     userLon = pos.coords.longitude;
                     map.setView([userLat, userLon], 14);
                     
-                    // Indicatore utente con il colore secondario e primario
                     userMarker = L.circleMarker([userLat, userLon], { 
                         color: '#C9121E', 
                         fillColor: '#5C222E',
@@ -160,7 +158,6 @@
             
             const status = document.getElementById('status');
             
-            // Richiesta permessi sensori per iOS
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
                     const permission = await DeviceMotionEvent.requestPermission();
@@ -181,7 +178,6 @@
 
             if (targetMarker) map.removeLayer(targetMarker);
             
-            // Icona personalizzata per il punto trovato
             const customIcon = L.divIcon({
                 className: 'custom-div-icon',
                 html: "<div style='background-color:#C9121E; width:14px; height:14px; border-radius:50%; border:2px solid #ffffff; box-shadow:0 0 10px #C9121E;'></div>",
